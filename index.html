@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MISA Thu Chi Clone - Phiên Bản Cloud Firebase VIP</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --misa-primary: #007aff;
+            --misa-bg: #f4f6f9;
+            --income: #2ecc71;
+            --expense: #e74c3c;
+            --text-main: #2c3e50;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            --edit-mode: #f39c12;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--misa-bg);
+            color: var(--text-main);
+            padding: 20px;
+        }
+
+        .wrapper {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: none; /* Ẩn app mặc định, chỉ hiện khi đã đăng nhập thành công */
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--card-shadow);
+        }
+
+        header h1 { font-size: 1.6rem; font-weight: 700; }
+        header p { opacity: 0.8; font-size: 0.9rem; margin-top: 4px; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .misa-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            border-left: 5px solid #bdc3c7;
+        }
+        .misa-card.inc { border-left-color: var(--income); }
+        .misa-card.exp { border-left-color: var(--expense); }
+        .misa-card.bal { border-left-color: var(--misa-primary); }
+
+        .misa-card h3 { font-size: 0.85rem; color: #7f8c8d; text-transform: uppercase; margin-bottom: 8px; }
+        .misa-card p { font-size: 1.5rem; font-weight: 700; }
+        .misa-card.inc p { color: var(--income); }
+        .misa-card.exp p { color: var(--expense); }
+
+        .control-bar {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .control-bar select, .control-bar input {
+            padding: 10px 14px;
+            border: 1px solid #dcdde1;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.9rem;
+            background: #fff;
+        }
+
+        .btn-trigger-modal, .btn-logout {
+            background: var(--misa-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px rgba(0, 122, 255, 0.2);
+        }
+        .btn-trigger-modal:hover {
+            background: #0062cc;
+            transform: translateY(-1px);
+        }
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: none;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+        .btn-logout:hover {
+            background: #e74c3c;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            height: fit-content;
+        }
+
+        .panel h2 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f1f2f6;
+            color: #34495e;
+        }
+
+        /* POPUP MODAL STYLES */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999; opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .modal-box {
+            background: white; width: 100%; max-width: 500px;
+            border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden; transform: scale(0.9); transition: transform 0.25s ease;
+        }
+
+        .modal-overlay.active .modal-box { transform: scale(1); }
+
+        .modal-header {
+            background: #f8f9fa; padding: 15px 20px; font-weight: bold;
+            font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #edeef0;
+        }
+
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #95a5a6; }
+        .modal-close:hover { color: var(--expense); }
+        .modal-body { padding: 20px; }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #7f8c8d; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #dcdde1; border-radius: 8px; font-size: 0.95rem; outline: none; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--misa-primary); }
+
+        .btn-submit {
+            background: var(--misa-primary); color: white; border: none; width: 100%;
+            padding: 12px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; margin-top: 10px;
+        }
+        .btn-submit:hover { background: #0062cc; }
+        .btn-submit.editing { background: var(--edit-mode); }
+        .btn-submit.editing:hover { background: #d35400; }
+
+        .chart-container {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #fafbfc;
+            border-radius: 8px;
+            min-height: 280px;
+        }
+
+        /* Giao diện Nhật ký */
+        .misa-day-group { border: 1px solid #edeef0; border-radius: 8px; margin-bottom: 15px; overflow: hidden; }
+        .misa-day-header { background: #f8f9fa; padding: 10px 15px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; border-bottom: 1px solid #edeef0; }
+        .misa-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #f5f6f7; background: #fff; transition: background 0.2s; }
+        .misa-item:last-child { border-bottom: none; }
+        .misa-item-clickable { cursor: pointer; flex-grow: 1; display: flex; justify-content: space-between; align-items: center; }
+        .misa-item:hover { background: #f1f7ff; }
+        .misa-item-info { display: flex; flex-direction: column; gap: 2px; }
+        .misa-item-title { font-weight: 600; font-size: 0.95rem; }
+        .misa-item-sub { font-size: 0.75rem; color: #95a5a6; }
+        .badge { background: #e1f0ff; color: var(--misa-primary); padding: 2px 6px; border-radius: 4px; font-weight: normal; }
+        .misa-item-right { display: flex; align-items: center; gap: 12px; }
+        .misa-item-amount { font-weight: 700; font-size: 1rem; }
+        .misa-item-amount.inc { color: var(--income); }
+        .misa-item-amount.exp { color: var(--expense); }
+        .btn-del { background: none; border: none; color: #bdc3c7; cursor: pointer; font-size: 1.2rem; transition: 0.2s; padding: 5px 0 5px 10px; }
+        .btn-del:hover { color: var(--expense); }
+
+        /* LOADING SPINNER */
+        #loading-screen {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background:#fff; display:flex; justify-content:center; align-items:center;
+            z-index: 10001; font-weight: bold; color: var(--misa-primary);
+        }
+
+        /* MÀN HÌNH ĐĂNG NHẬP */
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10000; display: none;
+        }
+        .login-box {
+            background: white; padding: 30px; border-radius: 16px;
+            width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .login-box h2 { color: #1e3c72; margin-bottom: 8px; font-size: 1.5rem; }
+        .login-box p { color: #7f8c8d; font-size: 0.85rem; margin-bottom: 20px; }
+        .login-error { color: var(--expense); font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="loading-screen">Đang kết nối Cloud Database...</div>
+
+<div class="login-overlay" id="login-screen">
+    <div class="login-box">
+        <h2>Thu Chi Cá Nhân</h2>
+        <p>Hệ thống tài chính đám mây Realtime</p>
+        <div class="login-error" id="login-err-msg">Lỗi xác thực tài khoản!</div>
+        <form id="login-form">
+            <div class="form-group" style="text-align: left;">
+                <label>Email tài khoản</label>
+                <input type="email" id="login-email" placeholder="Ví dụ: ban@gmail.com" required autocomplete="email">
+            </div>
+            <div class="form-group" style="text-align: left; margin-bottom: 15px;">
+                <label>Mật khẩu (Tối thiểu 6 ký tự)</label>
+                <input type="password" id="login-pass" placeholder="Nhập mật khẩu..." required autocomplete="current-password">
+            </div>
+            <button type="submit" id="btn-login-submit" class="btn-submit" style="background: #1e3c72;">Đăng Nhập</button>
+            <button type="button" id="btn-register-submit" class="btn-submit" style="background: #2ecc71; margin-top: 8px;">Đăng Ký Tài Khoản Mới</button>
+        </form>
+    </div>
+</div>
+
+<div class="wrapper" id="main-app">
+    <header>
+        <div>
+            <h1>MISA Thu Chi Cá Nhân</h1>
+            <p id="user-display-email">Đang tải tài khoản...</p>
+        </div>
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div>
+                <span style="font-size: 0.85rem; opacity: 0.8;">Hạn mức an toàn</span>
+                <div style="font-weight: bold; font-size: 1.2rem;" id="wallet-total">0đ</div>
+            </div>
+            <button class="btn-logout" id="btn-logout-act">🔒 Đăng xuất</button>
+        </div>
+    </header>
+
+    <div class="control-bar">
+        <div class="filter-group">
+            <span style="font-weight:600; font-size:0.9rem;">Kỳ báo cáo:</span>
+            <select id="time-filter">
+                <option value="all">Tất cả thời gian</option>
+                <option value="today">Hôm nay</option>
+                <option value="this-month" selected>Tháng này</option>
+                <option value="last-month">Tháng trước</option>
+                <option value="this-year">Năm nay</option>
+                <option value="custom">Khoảng tự chọn</option>
+            </select>
+            <div id="custom-date-inputs" style="display: none; gap: 8px; align-items: center;">
+                <input type="date" id="start-date">
+                <span style="font-size:0.85rem;">đến</span>
+                <input type="date" id="end-date">
+            </div>
+        </div>
+        
+        <button class="btn-trigger-modal" id="btn-open-add-modal">
+            <span>➕</span> Thêm Giao Dịch Mới
+        </button>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="misa-card inc">
+            <h3>Tổng thu trong kỳ</h3>
+            <p id="dash-income">0đ</p>
+        </div>
+        <div class="misa-card exp">
+            <h3>Tổng chi trong kỳ</h3>
+            <p id="dash-expense">0đ</p>
+        </div>
+        <div class="misa-card bal">
+            <h3>Tích lũy trong kỳ</h3>
+            <p id="dash-balance">0đ</p>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel">
+            <h2>So Sánh Tổng Thu & Tổng Chi</h2>
+            <div class="chart-container">
+                <canvas id="misaBarChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Nhật Ký Sổ Thu Chi <span style="font-size:0.75rem; color:#95a5a6; font-weight:normal;">(Bấm dòng để sửa)</span></h2>
+            <div id="misa-log-container"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="misa-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span id="modal-title">Ghi Chép Giao Dịch</span>
+            <button class="modal-close" id="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="misa-form">
+                <div class="form-group">
+                    <label>Ngày giao dịch</label>
+                    <input type="date" id="inp-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Loại dòng tiền</label>
+                    <select id="inp-type">
+                        <option value="expense">Khoản Chi (Tiền ra)</option>
+                        <option value="income">Khoản Thu (Tiền vào)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Số tiền (VNĐ)</label>
+                    <input type="number" id="inp-amount" placeholder="Nhập số tiền..." required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tài khoản / Ví thanh toán</label>
+                    <select id="inp-wallet">
+                        <option value="Tiền mặt">Tiền mặt 💵</option>
+                        <option value="Thẻ Ngân hàng">Thẻ Ngân hàng 💳</option>
+                        <option value="Ví điện tử">Ví điện tử (Momo/ZaloPay) 📱</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Hạng mục danh mục</label>
+                    <select id="inp-category"></select>
+                </div>
+                <div class="form-group">
+                    <label>Ghi chú chi tiết</label>
+                    <input type="text" id="inp-desc" placeholder="Ví dụ: Ăn phở sáng..." required>
+                </div>
+                <button type="submit" id="btn-submit-main" class="btn-submit">Ghi Sổ Thu Chi</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+        getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+        getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, query, where, onSnapshot 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // 🔴 THAY THẾ ĐOẠN CẤU HÌNH NÀY BẰNG CỦA BẠN TRÊN FIREBASE CONSOLE ĐỂ CHẠY ĐƯỢC 🔴
+    //đã đổi sang của tôi
+   const firebaseConfig = {
+  apiKey: "AIzaSyCqmJ8c47COSFvBrIOM-XyzhZOMJtc3WPg",
+  authDomain: "thuchimisa.firebaseapp.com",
+  projectId: "thuchimisa",
+  storageBucket: "thuchimisa.firebasestorage.app",
+  messagingSenderId: "583727209004",
+  appId: "1:583727209004:web:357dec1833b84dcecd8f89",
+  measurementId: "G-J9NVXE1HQ2"
+};
+
+    // Khởi tạo các dịch vụ Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Biến toàn cục ứng dụng
+    let currentUser = null;
+    let transactions = [];
+    let myChart = null;
+    let editingId = null;
+
+    const categoriesMap = {
+        expense: ["Ăn uống / Thực phẩm", "Di chuyển / Xăng xe", "Mua sắm cá nhân", "Hóa đơn Điện/Nước/Internet", "Giải trí / Du lịch", "Nhà ở / Tiền phòng", "Khoản chi khác"],
+        income: ["Tiền lương hàng tháng", "Lợi nhuận Kinh doanh / Thưởng", "Đầu tư / Tài chính", "Được tặng / Biếu", "Khoản thu khác"]
+    };
+
+    // --- THEO DÕI TRẠNG THÁI ĐĂNG NHẬP CỦA USER ---
+    onAuthStateChanged(auth, (user) => {
+        const loadScreen = document.getElementById('loading-screen');
+        const loginScreen = document.getElementById('login-screen');
+        const mainApp = document.getElementById('main-app');
+
+        loadScreen.style.display = 'none'; // Tắt màn hình chờ kết nối ban đầu
+
+        if (user) {
+            currentUser = user;
+            document.getElementById('user-display-email').innerText = `Tài khoản: ${user.email} ☁️ (Cloud Connected)`;
+            loginScreen.style.display = 'none';
+            mainApp.style.display = 'block';
+            
+            // 🔄 LẮP ĐẶT LẮP ĐẶT LẮNG NGHE REALTIME DATABASE TỪ FIRESTORE
+            const q = query(collection(db, "transactions"), where("userId", "==", user.uid));
+            onSnapshot(q, (snapshot) => {
+                transactions = [];
+                snapshot.forEach((doc) => {
+                    transactions.push({ id: doc.id, ...doc.data() });
+                });
+                renderApp();
+            });
+
+        } else {
+            currentUser = null;
+            loginScreen.style.display = 'flex';
+            mainApp.style.display = 'none';
+        }
+    });
+
+    // --- XỬ LÝ SỰ KIỆN AUTH (LOGIN / REGISTER / LOGOUT) ---
+    document.getElementById('btn-login-submit').addEventListener('click', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        const pass = document.getElementById('login-pass').value;
+        const errBox = document.getElementById('login-err-msg');
+
+        if(!email || !pass) return;
+
+        signInWithEmailAndPassword(auth, email, pass)
+            .catch(error => {
+                errBox.innerText = "Đăng nhập thất bại: " + error.message;
+                errBox.style.display = 'block';
+            });
+    });
+
+    document.getElementById('btn-register-submit').addEventListener('click', () => {
+        const email = document.getElementById('login-email').value.trim();
+        const pass = document.getElementById('login-pass').value;
+        const errBox = document.getElementById('login-err-msg');
+
+        if(!email || pass.length < 6) {
+            errBox.innerText = "Đăng ký cần nhập đúng định dạng Email và Pass phải từ 6 ký tự.";
+            errBox.style.display = 'block';
+            return;
+        }
+
+        createUserWithEmailAndPassword(auth, email, pass)
+            .then(() => alert("Đăng ký tài khoản thành công! Hệ thống tự động đăng nhập."))
+            .catch(error => {
+                errBox.innerText = "Đăng ký thất bại: " + error.message;
+                errBox.style.display = 'block';
+            });
+    });
+
+    document.getElementById('btn-logout-act').addEventListener('click', () => {
+        if(confirm("Bạn muốn đăng xuất khỏi ứng dụng?")) {
+            signOut(auth);
+        }
+    });
+
+    // --- LOGIC GIAO DIỆN & CRUD (CẬP NHẬT DÙNG FIRESTORE) ---
+    window.closeModal = function() { 
+        document.getElementById('misa-modal').classList.remove('active'); 
+        editingId = null; 
+    }
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+
+    document.getElementById('btn-open-add-modal').addEventListener('click', () => {
+        editingId = null;
+        document.getElementById('modal-title').innerText = "Ghi Chép Giao Dịch Mới ➕";
+        const submitBtn = document.getElementById('btn-submit-main');
+        submitBtn.innerText = "Ghi Sổ Lên Mây";
+        submitBtn.classList.remove('editing');
+        
+        document.getElementById('misa-form').reset();
+        document.getElementById('inp-date').valueAsDate = new Date();
+        document.getElementById('inp-type').value = 'expense';
+        updateCategories();
+        document.getElementById('misa-modal').classList.add('active');
+    });
+
+    window.startEditTx = function(id) {
+        const tx = transactions.find(t => t.id === id);
+        if (!tx) return;
+        editingId = id; 
+
+        document.getElementById('inp-date').value = tx.date;
+        document.getElementById('inp-type').value = tx.type;
+        updateCategories(tx.category);
+        document.getElementById('inp-amount').value = tx.amount;
+        document.getElementById('inp-wallet').value = tx.wallet;
+        document.getElementById('inp-desc').value = tx.desc;
+
+        document.getElementById('modal-title').innerText = "Chỉnh Sửa Giao Dịch Đám Mây 🛠️";
+        const submitBtn = document.getElementById('btn-submit-main');
+        submitBtn.innerText = "Đồng Bộ Thay Đổi";
+        submitBtn.classList.add('editing');
+        document.getElementById('misa-modal').classList.add('active');
+    }
+
+    window.updateCategories = function(selectedCat = null) {
+        const type = document.getElementById('inp-type').value;
+        const catSelect = document.getElementById('inp-category');
+        catSelect.innerHTML = '';
+        categoriesMap[type].forEach(cat => {
+            let opt = document.createElement('option');
+            opt.value = cat; opt.innerText = cat;
+            if(selectedCat && cat === selectedCat) opt.selected = true;
+            catSelect.appendChild(opt);
+        });
+    }
+    document.getElementById('inp-type').addEventListener('change', () => updateCategories());
+
+    document.getElementById('time-filter').addEventListener('change', function() {
+        const customDiv = document.getElementById('custom-date-inputs');
+        if(this.value === 'custom') { customDiv.style.display = 'flex'; } 
+        else { customDiv.style.display = 'none'; renderApp(); }
+    });
+    document.getElementById('start-date').addEventListener('change', () => renderApp());
+    document.getElementById('end-date').addEventListener('change', () => renderApp());
+
+    // THỰC HIỆN SAVE/UPDATE LÊN TRÊN FIRESTORE DATABASE
+    document.getElementById('misa-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if(!currentUser) return;
+
+        const date = document.getElementById('inp-date').value;
+        const type = document.getElementById('inp-type').value;
+        const amount = parseInt(document.getElementById('inp-amount').value);
+        const wallet = document.getElementById('inp-wallet').value;
+        const category = document.getElementById('inp-category').value;
+        const desc = document.getElementById('inp-desc').value;
+
+        const dataPayload = { userId: currentUser.uid, date, type, amount, wallet, category, desc };
+
+        try {
+            if (editingId !== null) {
+                // Sửa tư liệu trên Cloud
+                const docRef = doc(db, "transactions", editingId);
+                await updateDoc(docRef, dataPayload);
+            } else {
+                // Thêm tư liệu mới lên Cloud
+                await addDoc(collection(db, "transactions"), dataPayload);
+            }
+            closeModal();
+        } catch(err) {
+            alert("Lỗi đồng bộ dữ liệu: " + err.message);
+        }
+    });
+
+    window.deleteTx = async function(id, event) {
+        event.stopPropagation(); // Không kích hoạt sự kiện bấm dòng để sửa
+        if(!confirm("Bạn có chắc chắn muốn xóa giao dịch này trên Cloud?")) return;
+        if(editingId === id) closeModal();
+        try {
+            await deleteDoc(doc(db, "transactions", id));
+        } catch(err) {
+            alert("Xóa thất bại: " + err.message);
+        }
+    }
+
+    // --- HÀM RENDER ĐỔ DỮ LIỆU ---
+    function formatVND(num) { return num.toLocaleString('vi-VN') + ' đ'; }
+    function formatMisaDate(dateStr) {
+        const [y, m, d] = dateStr.split('-'); return `Ngày ${d}/${m}/${y}`;
+    }
+
+    window.renderApp = function() {
+        if (!currentUser) return;
+        const filterMode = document.getElementById('time-filter').value;
+        const now = new Date();
+        let filtered = [];
+
+        if (filterMode === 'all') { filtered = [...transactions]; } 
+        else if (filterMode === 'today') {
+            const todayStr = now.toISOString().split('T')[0];
+            filtered = transactions.filter(t => t.date === todayStr);
+        } else if (filterMode === 'this-month') {
+            const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            filtered = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+        } else if (filterMode === 'last-month') {
+            let lm = now.getMonth() - 1; let ly = now.getFullYear();
+            if (lm < 0) { lm = 11; ly--; }
+            const lastYearMonth = `${ly}-${String(lm + 1).padStart(2, '0')}`;
+            filtered = transactions.filter(t => t.date && t.date.startsWith(lastYearMonth));
+        } else if (filterMode === 'this-year') {
+            const currentYear = `${now.getFullYear()}`;
+            filtered = transactions.filter(t => t.date && t.date.startsWith(currentYear));
+        } else if (filterMode === 'custom') {
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+            if (start && end) { filtered = transactions.filter(t => t.date >= start && t.date <= end); } 
+            else { filtered = [...transactions]; }
+        }
+
+        let incTotal = 0; let expTotal = 0;
+        filtered.forEach(t => {
+            if(t.type === 'income') incTotal += t.amount;
+            else expTotal += t.amount;
+        });
+
+        document.getElementById('dash-income').innerText = formatVND(incTotal);
+        document.getElementById('dash-expense').innerText = formatVND(expTotal);
+        document.getElementById('dash-balance').innerText = formatVND(incTotal - expTotal);
+
+        let totalWalletBalance = 0;
+        transactions.forEach(t => {
+            if(t.type === 'income') totalWalletBalance += t.amount;
+            else totalWalletBalance -= t.amount;
+        });
+        document.getElementById('wallet-total').innerText = formatVND(totalWalletBalance);
+
+        renderBarChart(incTotal, expTotal);
+
+        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        const dateGroups = {};
+        filtered.forEach(t => {
+            if(!dateGroups[t.date]) dateGroups[t.date] = [];
+            dateGroups[t.date].push(t);
+        });
+
+        const logContainer = document.getElementById('misa-log-container');
+        logContainer.innerHTML = '';
+
+        if (Object.keys(dateGroups).length === 0) {
+            logContainer.innerHTML = '<p style="text-align:center; color:#95a5a6; padding: 20px; font-size:0.9rem;">Không có giao dịch trực tuyến trong khoảng này.</p>';
+            return;
+        }
+
+        for (const date in dateGroups) {
+            const dayGroupDiv = document.createElement('div');
+            dayGroupDiv.className = 'misa-day-group';
+
+            let dayInc = 0; let dayExp = 0;
+            dateGroups[date].forEach(t => {
+                if(t.type === 'income') dayInc += t.amount; else dayExp += t.amount;
+            });
+            let subResult = dayInc - dayExp;
+
+            const dayHeaderDiv = document.createElement('div');
+            dayHeaderDiv.className = 'misa-day-header';
+            dayHeaderDiv.innerHTML = `
+                <span>${formatMisaDate(date)}</span>
+                <span style="color: ${subResult >= 0 ? 'var(--income)' : 'var(--expense)'}">
+                    ${subResult >= 0 ? '+' : ''}${formatVND(subResult)}
+                </span>
+            `;
+            dayGroupDiv.appendChild(dayHeaderDiv);
+
+            dateGroups[date].forEach(t => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'misa-item';
+                itemDiv.innerHTML = `
+                    <div class="misa-item-clickable" onclick="startEditTx('${t.id}')">
+                        <div class="misa-item-info">
+                            <span class="misa-item-title">${t.desc}</span>
+                            <div style="display:flex; gap:6px; margin-top:2px;">
+                                <span class="misa-item-sub badge">${t.wallet}</span>
+                                <span class="misa-item-sub" style="align-self: center;">• ${t.category}</span>
+                            </div>
+                        </div>
+                        <div class="misa-item-right">
+                            <span class="misa-item-amount ${t.type === 'income' ? 'inc' : 'exp'}">
+                                ${t.type === 'income' ? '+' : '-'}${formatVND(t.amount)}
+                            </span>
+                        </div>
+                    </div>
+                    <button class="btn-del" onclick="deleteTx('${t.id}', event)">&times;</button>
+                `;
+                dayGroupDiv.appendChild(itemDiv);
+            });
+            logContainer.appendChild(dayGroupDiv);
+        }
+    }
+
+    function renderBarChart(income, expense) {
+        const canvas = document.getElementById('misaBarChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (myChart) { myChart.destroy(); }
+
+        myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Tổng Thu', 'Tổng Chi'],
+                datasets: [{
+                    label: 'Số tiền (VNĐ)',
+                    data: [income, expense],
+                    backgroundColor: ['#2ecc71', '#e74c3c'], 
+                    borderRadius: 6,
+                    barThickness: 45
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }, 
+                    title: { display: true, text: 'Tương Quan Dòng Tiền Thu Vừa Qua', font: { size: 14, weight: 'bold' } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: function(value) { return value.toLocaleString('vi-VN') + ' đ'; } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Đóng cửa sổ khi click ngoài modal
+    window.onclick = function(event) {
+        const modal = document.getElementById('misa-modal');
+        if (event.target == modal) { closeModal(); }
+    }
+</script>
+</body>
+</html>
